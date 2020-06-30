@@ -34,9 +34,10 @@ if 'preprocess' in STEP or 'full' in STEP:
         
         img_dir = os.path.join('./tmp/video_imgs','%02d' % i)
         util.makedirs(img_dir)
-        ffmpeg.video2image(video_path, os.path.join(img_dir,'%05d.png'))
+        ffmpeg.video2image(video_path, os.path.join(img_dir,'%05d.jpg'))
 
     ffmpeg.video2voice(music_path, './tmp/music/music.wav','wav')
+
 
 if 'matchtest' in STEP or 'generate_video' in STEP or 'full' in STEP:
     '''

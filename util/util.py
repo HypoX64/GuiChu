@@ -44,6 +44,7 @@ def  writelog(path,log):
     f.write(log+'\n')
     f.close()
 
+
 def makedirs(path):
     if os.path.isdir(path):
         print(path,'existed')
@@ -82,3 +83,13 @@ def copyfile(src,dst):
         shutil.copyfile(src, dst)
     except Exception as e:
         print(e)
+
+def second2stamp(s):
+    floats = s
+    h = int(s/3600)
+    s = int(s%3600)
+    m = int(s/60)
+    s = int(s%60)
+    floats = floats - int(floats) + s
+
+    return "%02d:%02d:%.3f" % (h, m, floats)

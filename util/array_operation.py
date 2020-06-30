@@ -6,31 +6,43 @@ def interp(y,length):
     x = np.linspace(0, len(y)-1,num = length)
     return np.interp(x, xp, fp)
 
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x));
 
 def pad(data,padding):
     pad_data = np.zeros(padding, dtype=data.dtype)
     data = np.append(data, pad_data)
     return data
 
-def normliaze(data,mod = 'norm',sigma = 0):
+def normliaze(data, mode = 'norm', sigma = 0, dtype=np.float32, truncated = 2):
     '''
-    mod: norm | std | maxmin | 5_95
+    mode: norm | std | maxmin | 5_95
+    dtype : np.float64,np.float16...
     '''
-    if mod == 'norm':
-        return (data-np.mean(data))/sigma
-    elif mod == 'std':
-        mu = np.mean(data, axis=0)
-        sigma = np.std(data, axis=0)
-        return (data - mu) / sigma
-    elif mod == 'maxmin':
-        return (data-np.mean(data))/sigma
-    elif mod == '5_95':
-        data_sort = np.sort(data)
+    data = data.astype(dtype)
+    data_calculate = data.copy()
+    if mode == 'norm':
+        result = (data-np.mean(data_calculate))/sigma
+    elif mode == 'std':
+        mu = np.mean(data_calculate)
+        sigma = np.std(data_calculate)
+        result = (data - mu) / sigma
+    elif mode == 'maxmin':
+        result = (data-np.mean(data_calculate))/(max(np.max(data_calculate),np.abs(np.min(data_calculate))))
+    elif mode == '5_95':
+        data_sort = np.sort(data_calculate,axis=None)
         th5 = data_sort[int(0.05*len(data_sort))]
         th95 = data_sort[int(0.95*len(data_sort))]
-        line0 = (th5+th95)/2
-        return (data-line0)/((th95-th5)/2)
+        baseline = (th5+th95)/2
+        sigma = (th95-th5)/2
+        if sigma == 0:
+            sigma = 1e-06
+        result = (data-baseline)/sigma
 
+    if truncated > 1:
+        result = np.clip(result, (-truncated), (truncated))
+
+    return result.astype(dtype)
 
 def diff1d(indata,stride=1,padding=1,bias=False):
 
@@ -46,12 +58,17 @@ def diff1d(indata,stride=1,padding=1,bias=False):
     return outdata
 
 
-def findpeak(indata,ismax=False,interval=2):
+def findpeak(indata, ismax=False, interval=10, threshold=0.1, reverse=False):
     '''
     return:indexs
     '''
-    diff = diff1d(indata)
     indexs = []
+    if reverse:
+        indata = -1*indata
+        indexs = [0,len(indata)-1]
+    else:
+        indata = np.clip(indata, np.max(indata)*threshold, np.max(indata))
+    diff = diff1d(indata)
     if ismax:
         return np.array([np.argmax(indata)])
 
@@ -73,7 +90,32 @@ def findpeak(indata,ismax=False,interval=2):
         else:
             rise = True
 
-    return np.array(indexs)
+    return np.sort(np.array(indexs))
+
+def crop(data,indexs,size):
+    if len(data) < size:
+        data = pad(data, size-len(data))
+
+    crop_result = []
+    for index in indexs:
+        if index-int(size/2)<0:
+            crop_result.append(data[0:size])
+        elif index+int(size/2)<0:
+            crop_result.append(data[len(data)-size:len(data)])
+        else:
+            crop_result.append(data[index-int(size/2):index+int(size/2)])
+    return np.array(crop_result)
+
+def cropbyindex(data,indexs,reverse_indexs):
+    crop_result = []
+    crop_index = []
+    for index in indexs:
+        for i in range(len(reverse_indexs)-1):
+            if reverse_indexs[i] < index:
+                if reverse_indexs[i+1] > index:
+                    crop_result.append(data[reverse_indexs[i]:reverse_indexs[i+1]])
+                    crop_index.append([reverse_indexs[i],reverse_indexs[i+1]])
+    return np.array(crop_result),np.array(crop_index)
 
 def get_crossing(line1,line2):
     cross_pos = []
@@ -121,19 +163,6 @@ def fillnone(arr_in,flag,num = 7):
             cnt += 1
     return arr,index
 
-def crop(data,indexs,size):
-    if len(data) < size:
-        data = pad(data, size-len(data))
-
-    crop_result = []
-    for index in indexs:
-        if index-int(size/2)<0:
-            crop_result.append(data[0:size])
-        elif index+int(size/2)<0:
-            crop_result.append(data[len(data)-size:len(data)])
-        else:
-            crop_result.append(data[index-int(size/2):index+int(size/2)])
-    return np.array(crop_result)
 
 def closest(a,array):
     '''

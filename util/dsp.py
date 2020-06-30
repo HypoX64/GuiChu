@@ -3,10 +3,38 @@ import scipy.signal
 import scipy.fftpack
 import numpy as np
 from .array_operation import *
+import matplotlib.pylab as plt
 
-def sin(f,fs,time):
-    x = np.linspace(0, 2*np.pi*f*time, fs*time)
-    return np.sin(x)
+def sin(f,fs,time,theta=0):
+    x = np.linspace(0, 2*np.pi*f*time, int(fs*time))
+    return np.sin(x+theta)
+
+def wave(f,fs,time,mode='sin'):
+    f,fs,time = float(f),float(fs),float(time)
+    if mode == 'sin':
+        return sin(f,fs,time,theta=0)
+    elif mode == 'square':
+        half_T_num = int(time*f)*2 + 1
+        half_T_point = int(fs/f/2)
+        x = np.zeros(int(fs*time)+2*half_T_point)
+        for i in range(half_T_num):
+            if i%2 == 0:
+                x[i*half_T_point:(i+1)*half_T_point] = -1
+            else:
+                x[i*half_T_point:(i+1)*half_T_point] = 1
+        return x[:int(fs*time)]
+    elif mode == 'triangle':
+        half_T_num = int(time*f)*2 + 1
+        half_T_point = int(fs/f/2)
+        up = np.linspace(-1, 1, half_T_point)
+        down = np.linspace(1, -1, half_T_point)
+        x = np.zeros(int(fs*time)+2*half_T_point)
+        for i in range(half_T_num):
+            if i%2 == 0:
+                x[i*half_T_point:(i+1)*half_T_point] = up.copy()
+            else:
+                x[i*half_T_point:(i+1)*half_T_point] = down.copy()
+        return x[:int(fs*time)]
 
 def downsample(signal,fs1=0,fs2=0,alpha=0,mod = 'just_down'):
     if alpha ==0:
@@ -25,10 +53,13 @@ def medfilt(signal,x):
 def cleanoffset(signal):
     return signal - np.mean(signal)
 
-def BPF_FIR(signal,fs,fc1,fc2,numtaps=101):
-    b=scipy.signal.firwin(numtaps, [fc1, fc2], pass_zero=False,fs=fs)
-    result = scipy.signal.lfilter(b, 1, signal)
-    return result
+def bpf(signal, fs, fc1, fc2, numtaps=3, mode='iir'):
+    if mode == 'iir':
+        b,a = scipy.signal.iirfilter(numtaps, [fc1,fc2], fs=fs)
+    elif mode == 'fir':
+        b = scipy.signal.firwin(numtaps, [fc1, fc2], pass_zero=False,fs=fs)
+        a = 1       
+    return scipy.signal.lfilter(b, a, signal)
 
 def fft_filter(signal,fs,fc=[],type = 'bandpass'):
     '''
@@ -77,6 +108,9 @@ def basefreq(signal,fs,fc=0):
             return i/(length/fs)
 
 def showfreq(signal,fs,fc=0):
+    """
+    return f,fft
+    """
     if fc==0:
         kc = int(len(signal)/2)
     else:   
@@ -106,6 +140,33 @@ def envelope_demodulation(signal,kernel_size,alpha = 0.9,mod='max'):
         # envelope[i] = np.max(signal[i*kernel_size:(i+1)*kernel_size])
         envelope[i] = np.sort(signal[i*kernel_size:(i+1)*kernel_size])[int(alpha*kernel_size)]
     return envelope
+
+
+
+def signal2spectrum(data,window_size, stride, n_downsample=1, log = True, log_alpha = 0.1):
+    # window : ('tukey',0.5) hann
+    if n_downsample != 1:
+        data = downsample(data,alpha=n_downsample)
+
+    zxx = scipy.signal.stft(data, window='hann', nperseg=window_size,noverlap=window_size-stride)[2]
+    spectrum = np.abs(zxx)
+
+    if log:
+        spectrum = np.log1p(spectrum)
+        h = window_size//2+1
+        x = np.linspace(h*log_alpha, h-1,num=h+1,dtype=np.int64)
+        index = (np.log1p(x)-np.log1p(h*log_alpha))/(np.log1p(h)-np.log1p(h*log_alpha))*h
+
+        spectrum_new = np.zeros_like(spectrum)
+        for i in range(h):
+            spectrum_new[int(index[i]):int(index[i+1])] = spectrum[i]
+        spectrum = spectrum_new
+        spectrum = (spectrum-0.05)/0.25
+
+    else:
+        spectrum = (spectrum-0.02)/0.05
+
+    return spectrum
 
 def main():
     print(downsample(piano,alpha=9))
