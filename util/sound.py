@@ -120,6 +120,11 @@ def time_correct(src,dst = 0,_min=0.25,out_time = 0, fs = 44100):
     out = librosa.effects.time_stretch(src,rate)
     return out
 
+def highlight_bass(src,srcfreq,contrastfreq):
+    if srcfreq < contrastfreq:
+        src = src/srcfreq*contrastfreq
+    return src
+
 def freqfeatures(signal,fs):
     signal = normliaze(signal,mode = '5_95',truncated=100)
     signal_fft = np.abs(scipy.fftpack.fft(signal))

@@ -93,19 +93,32 @@ def fft_filter(signal,fs,fc=[],type = 'bandpass'):
     result = signal_ifft.real
     return result
 
-def basefreq(signal,fs,fc=0):
+def basefreq(signal,fs,fc=0,mode = 'centroid'):
     if fc==0:
         kc = int(len(signal)/2)
     else:   
         kc = int(len(signal)/fs*fc)
     length = len(signal)
     signal_fft = np.abs(scipy.fftpack.fft(signal))[:kc]
+    # centroid
     _sum = np.sum(signal_fft)/2
     tmp_sum = 0
     for i in range(kc):
         tmp_sum += signal_fft[i]
         if tmp_sum > _sum:
-            return i/(length/fs)
+            centroid_freq =  i/(length/fs)
+            break
+    # print(centroid_freq)
+    # max
+    max_freq = np.argwhere(signal_fft == np.max(signal_fft))[0][0]/(length/fs)
+    # print(max_freq)
+    if mode == 'centroid':        
+        return centroid_freq
+    elif mode == 'max':
+        return max_freq
+    elif mode == 'mean':
+        return (centroid_freq+max_freq)/2
+
 
 def showfreq(signal,fs,fc=0):
     """
